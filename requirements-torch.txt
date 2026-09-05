@@ -1,0 +1,5 @@
+# PyTorch whole-slide training environment. CUDA wheels are installed from the
+# matching official PyTorch index; see optimizations/scs_streaming/PYTORCH.md.
+numpy>=2.0,<3
+scipy>=1.13,<2
+torch==2.13.0

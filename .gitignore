@@ -1,0 +1,26 @@
+# Environments and caches
+.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Large local data, prepared arrays, checkpoints, and scheduler output
+ST19/
+prepared/
+runs/
+*.log
+slurm-*.out
+optimizations/scs_streaming/benchmarks/
+
+# Upstream source checkouts kept outside this repository's history
+SCS/
+spateo-release-1.0.2/
+
+# Local tool binaries
+tools/
+
+# Editor/OS files
+.DS_Store
+.idea/
+.vscode/

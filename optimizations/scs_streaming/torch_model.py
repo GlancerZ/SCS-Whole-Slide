@@ -16,7 +16,8 @@ class ModelConfig:
     explicitly wider *and* deeper without changing the data contract.
     """
 
-    n_genes: int
+    input_dim: int
+    n_genes: int = 0
     n_neighbors: int = 50
     n_classes: int = 16
     scale: int = 4
@@ -28,8 +29,10 @@ class ModelConfig:
     def __post_init__(self):
         if self.scale not in (1, 2, 4):
             raise ValueError("scale must be one of 1, 2, or 4")
-        if min(self.n_genes, self.n_neighbors, self.n_classes, self.base_layers) < 1:
+        if min(self.input_dim, self.n_neighbors, self.n_classes, self.base_layers) < 1:
             raise ValueError("model dimensions must be positive")
+        if self.n_genes < 0:
+            raise ValueError("gene count cannot be negative")
 
     @property
     def width(self):
@@ -107,11 +110,20 @@ class TransformerBlock(nn.Module):
 class SCSClassifier(nn.Module):
     """One whole-slide model with direction and foreground prediction heads."""
 
-    def __init__(self, config):
+    def __init__(self, config, gene_embeddings=None):
         super().__init__()
         self.config = config
         width = config.width
-        self.expression_projection = nn.Linear(config.n_genes, width)
+        self.expression_projection = nn.Linear(config.input_dim, width, bias=False)
+        self.spot_bias = nn.Parameter(self.expression_projection.weight.new_zeros(width))
+        if gene_embeddings is not None:
+            if tuple(gene_embeddings.shape) != (config.n_genes, config.input_dim):
+                raise ValueError("GenePT table does not match model configuration")
+            self.register_buffer(
+                "gene_embeddings", gene_embeddings.float(), persistent=False
+            )
+        else:
+            self.register_buffer("gene_embeddings", None, persistent=False)
         self.position_projection = nn.Linear(2, width)
         self.blocks = nn.ModuleList(
             [
@@ -131,10 +143,37 @@ class SCSClassifier(nn.Module):
         self.direction_head = nn.Linear(4 * width, config.n_classes)
         self.foreground_head = nn.Linear(4 * width, 1)
 
+    def project_expression(self, expression):
+        if isinstance(expression, (tuple, list)):
+            if self.gene_embeddings is None:
+                raise ValueError("sparse spots require a GenePT gene table")
+            if len(expression) != 4:
+                raise ValueError("sparse spots need indices, values, offsets, shape")
+            indices, values, offsets, shape = expression
+            batch, neighbors = map(int, shape)
+            lengths = offsets[1:] - offsets[:-1]
+            divisors = lengths.repeat_interleave(lengths).to(dtype=values.dtype)
+            normalized_values = values / divisors
+            projected_genes = self.expression_projection(self.gene_embeddings)
+            pooled = F.embedding_bag(
+                indices,
+                projected_genes,
+                offsets,
+                mode="sum",
+                per_sample_weights=normalized_values.to(projected_genes.dtype),
+                include_last_offset=True,
+            )
+            valid = (lengths > 0).to(dtype=pooled.dtype).unsqueeze(-1)
+            pooled = pooled + valid * self.spot_bias.to(dtype=pooled.dtype)
+            return pooled.reshape(batch, neighbors, self.config.width)
+        if expression.ndim != 3 or expression.shape[-1] != self.config.input_dim:
+            raise ValueError("dense spot embeddings have the wrong shape")
+        return self.expression_projection(expression) + self.spot_bias
+
     def forward(self, expression, relative_positions):
-        if expression.ndim != 3 or relative_positions.ndim != 3:
-            raise ValueError("expected [batch, neighbors, features] inputs")
-        x = self.expression_projection(expression)
+        if relative_positions.ndim != 3:
+            raise ValueError("positions must be [batch, neighbors, 2]")
+        x = self.project_expression(expression)
         x = x + self.position_projection(relative_positions.to(dtype=x.dtype))
         for block in self.blocks:
             x = block(x)

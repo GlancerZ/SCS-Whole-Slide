@@ -10,8 +10,13 @@ session=train-scale4
 data_root=${SCS_DATA_ROOT:-runs/ST19_shared_6000}
 batch_size=${SCS_BATCH_SIZE:-5760}
 epochs=${SCS_EPOCHS:-1}
-run_name=${SCS_RUN_NAME:-torch_scale4_bs5760}
-log=${SCS_LOG:-runs/ST19_shared_6000.torch_scale4.log}
+dataset_name=${GENEPT_DATASET_NAME:-genept_allgenes_linear_random90}
+run_name=${SCS_RUN_NAME:-torch_genept_allgenes_scale4_bs${batch_size}}
+log=${SCS_LOG:-runs/ST19_shared_6000.torch_genept_allgenes_scale4.log}
+resume_arg=
+if [[ ${SCS_RESUME:-0} == 1 ]]; then
+    resume_arg=--resume
+fi
 
 if tmux -L "$socket" has-session -t "$session" 2>/dev/null; then
     echo "tmux session already exists: $socket/$session" >&2
@@ -22,7 +27,11 @@ tmux -L "$socket" new-session -d -s "$session" \
     "exec python -B -u -m optimizations.scs_streaming.shared_train_torch train \
       --root '$data_root' \
       --scale 4 --amp bf16 --batch-size '$batch_size' --epochs '$epochs' \
-      --workers 0 --prefetch 1 --run-name '$run_name' \
+      --workers 2 --prefetch 2 --input-pipeline genept \
+      --dataset-name '$dataset_name' --residency memory \
+      --host-dtype float16 --per-class-cap 0 \
+      --split-mode random \
+      --validation-fraction 0.1 --run-name '$run_name' $resume_arg \
       >> '$log' 2>&1"
 
 echo "started tmux session $socket/$session; log=$log"

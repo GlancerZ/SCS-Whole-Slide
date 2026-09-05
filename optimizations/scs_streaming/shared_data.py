@@ -3,6 +3,7 @@
 Store each expression bin once, and store neighbor row indices rather than an
 N x neighbors x genes tensor. Only the current minibatch becomes float32/dense.
 """
+
 import hashlib
 import json
 import math
@@ -14,7 +15,9 @@ from scipy import sparse
 
 
 def fingerprint(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def save_json(path, value):
@@ -51,7 +54,7 @@ def neighbor_table(expression, grid_shape, n_neighbors=50, rings=10, chunk_size=
     offsets = ring_offsets(rings)
     tables = []
     for start in range(0, len(centers), chunk_size):
-        c = centers[start:start + chunk_size]
+        c = centers[start : start + chunk_size]
         x = c[:, None] // grid_shape[1] + offsets[None, :, 0]
         y = c[:, None] % grid_shape[1] + offsets[None, :, 1]
         valid = (x >= 0) & (x < grid_shape[0]) & (y >= 0) & (y < grid_shape[1])
@@ -61,24 +64,56 @@ def neighbor_table(expression, grid_shape, n_neighbors=50, rings=10, chunk_size=
         rows, valid = rows[eligible], valid[eligible]
         # Stable selection preserves the published ring order and center first.
         ranks = np.cumsum(valid, axis=1)
-        tables.append(rows[valid & (ranks <= n_neighbors)].reshape(-1, n_neighbors).astype(np.int32))
-    return np.concatenate(tables) if tables else np.empty((0, n_neighbors), np.int32), len(centers)
+        tables.append(
+            rows[valid & (ranks <= n_neighbors)]
+            .reshape(-1, n_neighbors)
+            .astype(np.int32)
+        )
+    return np.concatenate(tables) if tables else np.empty(
+        (0, n_neighbors), np.int32
+    ), len(centers)
 
 
 def interior_mask(local_xy, tile, margin):
     """No halo duplicates; erode each core to isolate train/validation contexts."""
     h = tile["halo"]
-    return ((local_xy[:, 0] >= h + margin) & (local_xy[:, 0] < h + tile["width"] - margin) &
-            (local_xy[:, 1] >= h + margin) & (local_xy[:, 1] < h + tile["height"] - margin))
+    return (
+        (local_xy[:, 0] >= h + margin)
+        & (local_xy[:, 0] < h + tile["width"] - margin)
+        & (local_xy[:, 1] >= h + margin)
+        & (local_xy[:, 1] < h + tile["height"] - margin)
+    )
+
+
+def direction_class_indices(directions, binary):
+    # Match SCS.dir_to_class, including the zero-vector convention.
+    angle = np.mod(np.arctan2(directions[:, 0], directions[:, 1]), 2 * np.pi)
+    classes = (angle / (2 * np.pi / 16)).astype(np.int64) % 16
+    classes[np.asarray(binary) != 1] = 0
+    return classes
 
 
 def direction_classes(directions, binary):
-    # Match SCS.dir_to_class, including the zero-vector convention.
-    angle = np.mod(np.arctan2(directions[:, 0], directions[:, 1]), 2 * np.pi)
-    classes = (angle / (2 * np.pi / 16)).astype(int) % 16
+    classes = direction_class_indices(directions, binary)
     result = np.eye(16, dtype=np.float32)[classes]
     result[np.asarray(binary) != 1] = 0
     return result
+
+
+def random_split_rows(rows, split, validation_fraction, seed, key):
+    """Deterministically stratify one tile/class pool into random point splits."""
+    rows = np.asarray(rows)
+    if split not in ("train", "validation"):
+        raise ValueError("split must be train or validation")
+    if not 0 < validation_fraction < 1:
+        raise ValueError("validation_fraction must be between zero and one")
+    if len(rows) < 2:
+        return rows if split == "train" else rows[:0]
+    salt = int(hashlib.sha256(str(key).encode()).hexdigest()[:8], 16)
+    rng = np.random.RandomState((seed + salt) % (2**32 - 1))
+    order = rng.permutation(rows)
+    validation_size = min(max(1, round(len(rows) * validation_fraction)), len(rows) - 1)
+    return order[validation_size:] if split == "train" else order[:validation_size]
 
 
 class TileStore:
@@ -94,18 +129,31 @@ class TileStore:
         self.eligible = np.load(directory / "eligible.npy", mmap_mode="r")
         self.bin_size = schema["bin_size"]
         self.grid_shape = self.meta["grid_shape"]
-        if self.expression.shape[1] != len(schema["gene_indices"]) or self.neighbors.shape[1] != schema["n_neighbors"]:
+        if (
+            self.expression.shape[1] != len(schema["gene_indices"])
+            or self.neighbors.shape[1] != schema["n_neighbors"]
+        ):
             raise ValueError("Tile dimensions do not match shared model")
 
-    def inputs(self, rows):
+    def inputs(self, rows, expression_dtype=np.float32):
         neighbors = np.asarray(self.neighbors[rows])
-        expression = self.expression[neighbors.ravel()].toarray().reshape(
-            len(neighbors), neighbors.shape[1], self.expression.shape[1]).astype(np.float32)
-        absolute = np.stack((neighbors // self.grid_shape[1], neighbors % self.grid_shape[1]), axis=-1) * self.bin_size
+        expression = (
+            self.expression[neighbors.ravel()]
+            .toarray()
+            .reshape(len(neighbors), neighbors.shape[1], self.expression.shape[1])
+            .astype(expression_dtype, copy=False)
+        )
+        absolute = (
+            np.stack(
+                (neighbors // self.grid_shape[1], neighbors % self.grid_shape[1]),
+                axis=-1,
+            )
+            * self.bin_size
+        )
         return expression, (absolute - absolute[:, :1]).astype(np.int32), absolute[:, 0]
 
-    def batch(self, rows):
-        x, p, _ = self.inputs(rows)
+    def batch(self, rows, expression_dtype=np.float32):
+        x, p, _ = self.inputs(rows, expression_dtype)
         binary = np.asarray(self.binary[rows], dtype=np.float32)
         return (x, p), (direction_classes(self.directions[rows], binary), binary)
 
@@ -131,15 +179,39 @@ class SharedBatches:
     reshuffled each epoch. Every training tile contributes to the SAME optimizer.
     A per-class cap is an explicit sampling budget, not all-data epochs.
     """
-    def __init__(self, root, split, batch_size=10, per_class_cap=4096, seed=20260905):
-        if batch_size < 1 or per_class_cap < 1:
-            raise ValueError("Batch size and regional cap must be positive")
+
+    def __init__(
+        self,
+        root,
+        split,
+        batch_size=10,
+        per_class_cap=4096,
+        seed=20260905,
+        split_mode="tile",
+        validation_fraction=0.1,
+    ):
+        if batch_size < 1 or per_class_cap < 0:
+            raise ValueError("Batch size must be positive and cap cannot be negative")
         self.root, self.schema = Path(root), load_schema(root)
-        self.split, self.batch_size, self.cap, self.seed = split, batch_size, per_class_cap, seed
+        if split_mode not in ("tile", "random"):
+            raise ValueError("split_mode must be tile or random")
+        self.split, self.batch_size, self.cap, self.seed = (
+            split,
+            batch_size,
+            per_class_cap,
+            seed,
+        )
+        self.split_mode = split_mode
+        self.validation_fraction = validation_fraction
         self.pools = {}
         self.counts = {}
         cache = TileCache(root, self.schema, capacity=1)
-        for tid in self.schema["splits"][split]:
+        tile_ids = (
+            self.schema["splits"][split]
+            if split_mode == "tile"
+            else self.schema["tile_ids"]
+        )
+        for tid in tile_ids:
             meta = json.loads((self.root / "tiles" / tid / "prepared.json").read_text())
             if meta["fingerprint"] != self.schema["fingerprint"]:
                 raise ValueError("Tile schema mismatch")
@@ -148,10 +220,22 @@ class SharedBatches:
             tile = cache.get(tid)
             positive = np.flatnonzero(tile.eligible & (tile.binary == 1))
             negative = np.flatnonzero(tile.eligible & (tile.binary == 0))
+            if split_mode == "random":
+                positive = random_split_rows(
+                    positive, split, validation_fraction, seed, f"{tid}:positive"
+                )
+                negative = random_split_rows(
+                    negative, split, validation_fraction, seed, f"{tid}:negative"
+                )
             # Nucleus-free RNA-containing tiles still contribute background and
             # remain inference targets; they are never called empty.
-            npos = min(len(positive), self.cap)
-            nneg = min(len(negative), self.cap, npos if npos else self.cap)
+            if self.cap:
+                npos = min(len(positive), self.cap)
+                nneg = min(len(negative), self.cap, npos if npos else self.cap)
+            else:
+                # A zero cap means a true full-data epoch. Dense regions then
+                # contribute in proportion to their actual number of points.
+                npos, nneg = len(positive), len(negative)
             if npos + nneg:
                 self.pools[tid] = (positive, negative)
                 self.counts[tid] = (npos, nneg)
@@ -162,20 +246,30 @@ class SharedBatches:
         if not sum(v[0] for v in self.counts.values()):
             raise ValueError(f"No foreground {split} samples")
 
-    def plan(self, epoch=0):
+    def tile_rows(self, epoch=0):
+        """Yield one independently shuffled, selected row array per tile."""
         rng = np.random.RandomState(self.seed + (epoch if self.split == "train" else 0))
         tile_ids = list(self.pools)
         if self.split == "train":
             rng.shuffle(tile_ids)
         for tid in tile_ids:
-            rows = np.concatenate([rng.choice(pool, n, replace=False)
-                                   for pool, n in zip(self.pools[tid], self.counts[tid])]).astype(np.int64)
+            rows = np.concatenate(
+                [
+                    rng.choice(pool, n, replace=False)
+                    for pool, n in zip(self.pools[tid], self.counts[tid])
+                ]
+            ).astype(np.int64)
             rng.shuffle(rows)
+            yield tid, rows
+
+    def plan(self, epoch=0):
+        for tid, rows in self.tile_rows(epoch):
             for start in range(0, len(rows), self.batch_size):
-                yield tid, rows[start:start + self.batch_size]
+                yield tid, rows[start : start + self.batch_size]
 
     def dataset(self, epoch=0):
         import tensorflow as tf
+
         n, g = self.schema["n_neighbors"], len(self.schema["gene_indices"])
 
         def generate():
@@ -183,8 +277,13 @@ class SharedBatches:
             for tid, rows in self.plan(epoch):
                 yield cache.get(tid).batch(rows)
 
-        signature = ((tf.TensorSpec((None, n, g), tf.float32), tf.TensorSpec((None, n, 2), tf.int32)),
-                     (tf.TensorSpec((None, 16), tf.float32), tf.TensorSpec((None,), tf.float32)))
+        signature = (
+            (
+                tf.TensorSpec((None, n, g), tf.float32),
+                tf.TensorSpec((None, n, 2), tf.int32),
+            ),
+            (tf.TensorSpec((None, 16), tf.float32), tf.TensorSpec((None,), tf.float32)),
+        )
         ds = tf.data.Dataset.from_generator(generate, output_signature=signature)
         ds = ds.apply(tf.data.experimental.assert_cardinality(self.steps))
         options = tf.data.Options()

@@ -1,0 +1,468 @@
+diff --git a/src/postprocessing.py b/src/postprocessing.py
+index ff6d30d..48414a4 100644
+--- a/src/postprocessing.py
++++ b/src/postprocessing.py
+@@ -1,8 +1,8 @@
+-import spateo as st
+ import numpy as np
+ import anndata as ad
+ import matplotlib.pyplot as plt
+ from scipy.stats import multivariate_normal
++from scipy.spatial import cKDTree
+ 
+ def read_gradient(file, adata, patch_size, bin_size, dia_estimate):
+     watershed2x = {}
+@@ -28,6 +28,8 @@ def read_gradient(file, adata, patch_size, bin_size, dia_estimate):
+     #print('#nucleus', len(watershed2center))
+ 
+     class2dir = class_to_gradient()
++    centers = list(watershed2center.values())
++    center_tree = cKDTree(centers) if centers else None
+     intensity = np.zeros(patch_size)
+     dx = np.zeros(patch_size)
+     dy = np.zeros(patch_size)
+@@ -40,12 +42,14 @@ def read_gradient(file, adata, patch_size, bin_size, dia_estimate):
+             x, y, b, class_logit = line.split()
+             class_prior = np.zeros(class_num)
+             class_prior_ext = np.zeros(class_num)
+-            for center in watershed2center:
+-                dis_c = euclidean_distance(watershed2center[center][0], watershed2center[center][1], int(x), int(y))
++            nearby = sorted(center_tree.query_ball_point([int(x), int(y)], int(dia_estimate)*1.25)) if center_tree is not None else []
++            for center_index in nearby:
++                center = centers[center_index]
++                dis_c = euclidean_distance(center[0], center[1], int(x), int(y))
+                 if dis_c <= int(dia_estimate):
+-                    class_prior += dir_to_class(watershed2center[center][0] - int(x) , watershed2center[center][1] - int(y), class_num, watershed2center[center][0], watershed2center[center][1])
++                    class_prior += dir_to_class(center[0] - int(x), center[1] - int(y), class_num, center[0], center[1])
+                 if dis_c <= int(dia_estimate) * 1.25:
+-                    class_prior_ext += dir_to_class(watershed2center[center][0] - int(x) , watershed2center[center][1] - int(y), class_num, watershed2center[center][0], watershed2center[center][1])
++                    class_prior_ext += dir_to_class(center[0] - int(x), center[1] - int(y), class_num, center[0], center[1])
+             if np.sum(class_prior) > 0:
+                  class_prior = class_prior_ext
+             class_prior_ori = np.ones(class_num) / class_num
+@@ -293,6 +297,8 @@ def gvf_tracking(dx, dy, intensity, bin_size, K=50, Diffusions=10, Mu=5, Lambda=
+ def merge_sinks(Label, Sinks, downrs, Radius=3.5):
+     import skimage.morphology as mp
+     from skimage import measure as ms
++    if Sinks.size == 0:
++        return np.zeros(Label.shape)
+ 
+     # build seed image
+     SeedImage = np.zeros(Label.shape)
+@@ -416,7 +422,7 @@ def result_stats(merged, startx, starty, patchsize):
+         fw.write('Average cell size (spots): ' + str(np.mean(all_sizes)) + '\n')
+         fw.write('Standard deviation of cell sizes: ' + str(np.std(all_sizes)) + '\n')
+ 
+-def postprocess(startx, starty, patchsize, bin_size, dia_estimate):
++def postprocess(startx, starty, patchsize, bin_size, dia_estimate, plot=True):
+     downrs = bin_size
+     startx = str(startx)
+     starty = str(starty)
+@@ -447,6 +453,12 @@ def postprocess(startx, starty, patchsize, bin_size, dia_estimate):
+                             expand[i + m, j + n] = 1
+     merged = remove_small_cells(merged)
+ 
++    np.savez_compressed('results/labels_' + startx + ':' + starty + ':' + patchsize + ':' + patchsize + '.npz',
++                        cells=merged.astype(np.uint32), nuclei=adata.layers['watershed_labels'].astype(np.uint32))
++    if not plot:
++        result_stats(merged, startx, starty, patchsize)
++        return
++
+     edges = np.zeros(merged.shape)
+     for i in range(merged.shape[0]):
+         for j in range(merged.shape[1]):
+diff --git a/src/preprocessing.py b/src/preprocessing.py
+index a34690c..dc53b38 100644
+--- a/src/preprocessing.py
++++ b/src/preprocessing.py
+@@ -1,4 +1,4 @@
+-import spateo as st
++from src import spateo_compat as st
+ import scanpy as sc
+ import anndata as ad
+ import matplotlib.pyplot as plt
+@@ -8,11 +8,12 @@ import pandas as pd
+ import math
+ import os
+ from scipy.sparse import lil_matrix, csr_matrix, vstack
++from scipy.spatial import cKDTree
+ 
+ 
+-def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsize, bin_size, n_neighbor):
++def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsize, bin_size, n_neighbor, preserve_origin=False):
+     #read data
+-    if prealigned:
++    if prealigned and not preserve_origin:
+         adatasub = st.io.read_bgi_agg(bin_file, image_file, prealigned=True)
+     else:
+         adatasub = st.io.read_bgi_agg(bin_file, image_file)
+@@ -90,6 +91,9 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+     for nucleus in watershed2x:
+         watershed2center[nucleus] = [np.mean(watershed2x[nucleus]), np.mean(watershed2y[nucleus])]
+         sizes.append(len(watershed2x[nucleus]))
++    if not watershed2center:
++        raise ValueError('No nuclei detected in registered staining image')
++    nucleus_tree = cKDTree(list(watershed2center.values()))
+     #print(np.min(sizes), np.max(sizes), np.mean(sizes))
+     #print('#nucleus', len(watershed2center))
+ 
+@@ -104,6 +108,8 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+             yall.append(int(y))
+     xmin = np.min(xall)
+     ymin = np.min(yall)
++    if preserve_origin:
++        xmin = ymin = 0
+     #print(np.min(xall), np.min(yall), np.max(xall), np.max(yall))
+ 
+     #find all the genes in the range
+@@ -140,7 +146,8 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+             else:
+                 idx2exp[idx][geneid[gene]] += int(count)
+ 
+-    all_exp_merged_bins = lil_matrix((int(math.ceil(patchsizex / downrs) * math.ceil(patchsizey / downrs)), genecnt), dtype=np.int8)
++    # A bin can contain more than 127 UMIs for a gene. Avoid signed-byte overflow.
++    all_exp_merged_bins = lil_matrix((int(math.ceil(patchsizex / downrs) * math.ceil(patchsizey / downrs)), genecnt), dtype=np.int32)
+     for idx in idx2exp:
+         for gid in idx2exp[idx]:
+             all_exp_merged_bins[idx, gid] = idx2exp[idx][gid]
+@@ -165,7 +172,10 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+             fw.write(id2gene[id] + '\n')
+ 
+     #check total gene counts
+-    all_exp_merged_bins = all_exp_merged_bins.toarray()[:, selected_index]
++    all_exp_merged_bins = all_exp_merged_bins[:, selected_index].toarray()
++    if all_exp_merged_bins.max() <= np.iinfo(np.uint16).max:
++        all_exp_merged_bins = all_exp_merged_bins.astype(np.uint16)
++    bin_has_expression = np.any(all_exp_merged_bins > 0, axis=1)
+     #print(all_exp_merged_bins.shape)
+     cell_bins = {}
+     x_train_tmp = []
+@@ -199,7 +209,7 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+                 continue
+             idx = int(math.floor(i / downrs) * math.ceil(patchsizey / downrs) + math.floor(j / downrs))
+             if adatasub.layers['watershed_labels'][i, j] > 0:
+-                if idx >= 0 and idx < all_exp_merged_bins.shape[0] and np.sum(all_exp_merged_bins[idx, :]) > 0:
++                if idx >= 0 and idx < all_exp_merged_bins.shape[0] and bin_has_expression[idx]:
+                     x_train_sample = [all_exp_merged_bins[idx, :]]
+                     x_train_pos_sample = [[i, j]]
+                     y_train_sample = [watershed2center[adatasub.layers['watershed_labels'][i, j]]]
+@@ -211,7 +221,7 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+                         if x < 0 or x >= adatasub.layers['watershed_labels'].shape[0] or y < 0 or y >= adatasub.layers['watershed_labels'].shape[1]:
+                             continue
+                         idx_nb = int(math.floor(x / downrs) * math.ceil(patchsizey / downrs) + math.floor(y / downrs))
+-                        if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and np.sum(all_exp_merged_bins[idx_nb, :]) > 0:
++                        if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and bin_has_expression[idx_nb]:
+                             x_train_sample.append(all_exp_merged_bins[idx_nb, :])
+                             x_train_pos_sample.append([x, y])
+                     if len(x_train_sample) < n_neighbor:
+@@ -227,12 +237,8 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+                     y_train.append(y_train_sample)
+                     y_binary_train.append(1)
+             else:
+-                if idx >= 0 and idx < all_exp_merged_bins.shape[0] and np.sum(all_exp_merged_bins[idx, :]) > 0:
+-                    backgroud = True
+-                    for nucleus in watershed2center:
+-                        if (i - watershed2center[nucleus][0]) ** 2 + (j - watershed2center[nucleus][1]) ** 2 <= 900 or adatasub.layers['stain'][i, j] > 10:
+-                            backgroud = False
+-                            break
++                if idx >= 0 and idx < all_exp_merged_bins.shape[0] and bin_has_expression[idx]:
++                    backgroud = adatasub.layers['stain'][i, j] <= 10 and nucleus_tree.query([i, j])[0] > 30
+                     if backgroud:
+                         if len(x_train_bg) + len(x_train_bg_tmp) >= len(x_train) + len(x_train_tmp):
+                             continue
+@@ -247,7 +253,7 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+                             if x < 0 or x >= adatasub.layers['watershed_labels'].shape[0] or y < 0 or y >= adatasub.layers['watershed_labels'].shape[1]:
+                                 continue
+                             idx_nb = int(math.floor(x / downrs) * math.ceil(patchsizey / downrs) + math.floor(y / downrs))
+-                            if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and np.sum(all_exp_merged_bins[idx_nb, :]) > 0:
++                            if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and bin_has_expression[idx_nb]:
+                                 x_train_sample.append(all_exp_merged_bins[idx_nb, :])
+                                 x_train_pos_sample.append([x, y])
+                         if len(x_train_sample) < n_neighbor:
+@@ -273,7 +279,7 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+                             if x < 0 or x >= adatasub.layers['watershed_labels'].shape[0] or y < 0 or y >= adatasub.layers['watershed_labels'].shape[1]:
+                                 continue
+                             idx_nb = int(math.floor(x / downrs) * math.ceil(patchsizey / downrs) + math.floor(y / downrs))
+-                            if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and np.sum(all_exp_merged_bins[idx_nb, :]) > 0:
++                            if idx_nb >= 0 and idx_nb < all_exp_merged_bins.shape[0] and bin_has_expression[idx_nb]:
+                                 x_test_sample.append(all_exp_merged_bins[idx_nb, :])
+                                 x_test_pos_sample.append([x, y])
+                         if len(x_test_sample) < n_neighbor:
+@@ -289,24 +295,31 @@ def preprocess(bin_file, image_file, prealigned, align, startx, starty, patchsiz
+ 
+     x_train = np.array(x_train)
+     x_train_pos = np.array(x_train_pos)
++    if not y_train:
++        raise ValueError('No nucleus training samples with sufficient RNA neighbors')
+     y_train = np.vstack(y_train)
+     y_binary_train = np.array(y_binary_train)
+     x_train_bg = np.array(x_train_bg)
+     x_train_pos_bg = np.array(x_train_pos_bg)
+-    y_train_bg = np.vstack(y_train_bg)
++    y_train_bg = np.vstack(y_train_bg) if y_train_bg else np.empty((0, 2))
+     y_binary_train_bg = np.array(y_binary_train_bg)
+     #print(x_train.shape, x_train_pos.shape, y_train.shape, y_binary_train.shape, x_train_bg.shape, x_train_pos_bg.shape, y_train_bg.shape, y_binary_train_bg.shape)
+ 
+     bg_index = np.arange(len(x_train_bg))
+     np.random.shuffle(bg_index)
+-    x_train = np.vstack((x_train, x_train_bg[bg_index[:len(x_train)]]))
+-    x_train_pos = np.vstack((x_train_pos, x_train_pos_bg[bg_index[:len(x_train_pos)]]))
+-    y_train = np.vstack((y_train, y_train_bg[bg_index[:len(y_train)]]))
+-    y_binary_train = np.hstack((y_binary_train, y_binary_train_bg[bg_index[:len(y_binary_train)]]))
++    if len(x_train_bg):
++        selected_bg = bg_index[:len(x_train)]
++        x_train = np.vstack((x_train, x_train_bg[selected_bg]))
++        x_train_pos = np.vstack((x_train_pos, x_train_pos_bg[selected_bg]))
++        y_train = np.vstack((y_train, y_train_bg[selected_bg]))
++        y_binary_train = np.hstack((y_binary_train, y_binary_train_bg[selected_bg]))
+     #print(x_train.shape, x_train_pos.shape, y_train.shape, y_binary_train.shape)
+ 
+     x_test= np.array(x_test)
+     x_test_pos = np.array(x_test_pos)
++    if not len(x_test):
++        x_test = np.empty((0,) + x_train.shape[1:], dtype=x_train.dtype)
++        x_test_pos = np.empty((0,) + x_train_pos.shape[1:], dtype=x_train_pos.dtype)
+     #print(x_test.shape, x_test_pos.shape)
+ 
+     np.savez_compressed('data/x_train_' + startx + ':' + starty + ':' + patchsize + ':' + patchsize + '.npz', x_train=x_train)
+diff --git a/src/transformer.py b/src/transformer.py
+index e601ad2..0ca2311 100644
+--- a/src/transformer.py
++++ b/src/transformer.py
+@@ -4,6 +4,8 @@ from tensorflow import keras
+ from tensorflow.keras import layers
+ import tensorflow_addons as tfa
+ import gc
++import json
++import resource
+ from tensorflow.keras.layers.experimental import preprocessing
+ import os
+ import anndata as ad
+@@ -100,6 +102,7 @@ def run_experiment(startx, starty, patchsize, model, x_train, x_train_pos, x_tra
+         metrics={
+             'pos_out': keras.metrics.CategoricalAccuracy(name="accuracy"),
+         },
++        steps_per_execution=int(os.environ.get('SCS_STEPS_PER_EXECUTION', '1')),
+     )
+ 
+     checkpoint_filepath = os.path.join('./ckpt', 'model_' + startx + '_' + starty + '_' + patchsize, 'ckpt')
+@@ -125,33 +128,49 @@ def run_experiment(startx, starty, patchsize, model, x_train, x_train_pos, x_tra
+     #print(y_train)
+     #print(y_binary_train)
+     #print(len(x_validation[np.where(y_binary_validation == 1)]))
++    validation_indices = np.where(y_binary_validation == 1)
++    validation_data = None
++    if len(validation_indices[0]):
++        validation_data = ([x_validation[validation_indices], x_validation_pos[validation_indices]],
++                           [y_validation[validation_indices], y_binary_validation[validation_indices]])
++    class MemoryLog(keras.callbacks.Callback):
++        def on_epoch_end(self, epoch, logs=None):
++            if epoch == 0 or (epoch + 1) % 10 == 0:
++                gpu = tf.config.experimental.get_memory_info('GPU:0') if tf.config.list_physical_devices('GPU') else {}
++                record = dict(epoch=epoch+1, gpu_allocator_current_mib=gpu.get('current', 0)/2**20,
++                              gpu_allocator_peak_mib=gpu.get('peak', 0)/2**20,
++                              process_peak_rss_gib=resource.getrusage(resource.RUSAGE_SELF).ru_maxrss/2**20)
++                with open('training_memory.json', 'w') as handle:
++                    json.dump(record, handle, indent=2)
++
+     model.fit(
+         x=[x_train, x_train_pos],
+         y=[y_train, y_binary_train],
+         batch_size=batch_size,
+         epochs=num_epochs,
+         validation_split=0.0,
+-        validation_data=([x_validation[np.where(y_binary_validation == 1)], x_validation_pos[np.where(y_binary_validation == 1)]], [y_validation[np.where(y_binary_validation == 1)], y_binary_validation[np.where(y_binary_validation == 1)]]),
+-        callbacks=[checkpoint_callback],
++        validation_data=validation_data,
++        callbacks=[checkpoint_callback, MemoryLog(), keras.callbacks.CSVLogger('training_history.csv', append=True)],
++        verbose=2,
+     )
+ 
+     print('Inference on all the spots...')
+     model.load_weights(checkpoint_filepath)
+     pred_centers_test_all = []
+     pred_binary_test_all = []
+-    for i in range(int(len(x_test) / 10000) + 1):
++    for i in range((len(x_test) + 9999) // 10000):
+         pred_centers_test_, pred_binary_test_ = model.predict(x = [x_test[i*10000: (i+1)*10000], x_test_pos[i*10000: (i+1)*10000]], batch_size=batch_size)
+         pred_centers_test_all.append(pred_centers_test_)
+         pred_binary_test_all.append(pred_binary_test_)
+         gc.collect()
+-    pred_centers_test = np.vstack(pred_centers_test_all)
+-    pred_binary_test = np.vstack(pred_binary_test_all)
++    pred_centers_test = np.vstack(pred_centers_test_all) if pred_centers_test_all else np.empty((0, 16))
++    pred_binary_test = np.vstack(pred_binary_test_all) if pred_binary_test_all else np.empty((0, 1))
+     #for i in range(len(x_test_pos)):
+     #    print(x_test_pos[i][0], pred_binary_test[i], pred_centers_test[i])
+ 
+     pred_centers_train_all = []
+     pred_binary_train_all = []
+-    for i in range(int(len(x_train_) / 10000) + 1):
++    for i in range((len(x_train_) + 9999) // 10000):
+         pred_centers_train_, pred_binary_train_ = model.predict(x = [x_train_[i*10000: (i+1)*10000], x_train_pos_[i*10000: (i+1)*10000]], batch_size=batch_size)
+         pred_centers_train_all.append(pred_centers_train_)
+         pred_binary_train_all.append(pred_binary_train_)
+diff --git a/src/spateo_compat.py b/src/spateo_compat.py
+new file mode 100644
+index 0000000..1d361d7
+--- /dev/null
++++ b/src/spateo_compat.py
+@@ -0,0 +1,158 @@
++"""Small Spateo 1.0.2 compatibility layer used by SCS.
++
++The upstream Spateo package imports a very large analysis stack at import time.
++SCS only needs a handful of its 2-D image/segmentation operations.  Keeping the
++implementations here makes the published SCS pipeline usable with its historical
++Python environment without pulling unrelated 3-D, GIS, and single-cell tools.
++"""
++
++from types import SimpleNamespace
++
++import cv2
++import numpy as np
++import pandas as pd
++from anndata import AnnData
++from scipy.sparse import csr_matrix, issparse
++from skimage import color, feature, filters, segmentation
++from tifffile import imread
++
++
++def _circle(k):
++    if k < 1 or k % 2 == 0:
++        raise ValueError("kernel size must be an odd positive integer")
++    radius = (k - 1) // 2
++    return cv2.circle(np.zeros((k, k), dtype=np.uint8), (radius, radius), radius, 1, -1)
++
++
++def _mclose_mopen(mask, k):
++    kernel = _circle(k)
++    closed = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE, kernel)
++    return cv2.morphologyEx(closed, cv2.MORPH_OPEN, kernel).astype(bool)
++
++
++def read_bgi_agg(path, stain_path=None, prealigned=False):
++    data = pd.read_csv(path, sep="\t", comment="#")
++    column_aliases = {
++        "gene": ("geneID", "gene", "geneName"),
++        "x": ("x", "row"),
++        "y": ("y", "column", "col"),
++        "count": ("MIDCounts", "MIDCount", "UMICount", "UMICounts", "counts", "count"),
++    }
++    selected = {}
++    for canonical, aliases in column_aliases.items():
++        selected[canonical] = next((name for name in aliases if name in data.columns), None)
++        if selected[canonical] is None:
++            raise ValueError(f"Could not find the {canonical!r} column in {path}")
++
++    x = data[selected["x"]].to_numpy(dtype=np.int64)
++    y = data[selected["y"]].to_numpy(dtype=np.int64)
++    if prealigned:
++        x = x - x.min()
++        y = y - y.min()
++
++    stain = None
++    if stain_path:
++        stain = imread(stain_path)
++        if stain.ndim == 3:
++            stain = color.rgb2gray(stain)
++        if np.issubdtype(stain.dtype, np.floating):
++            stain = np.clip(stain * 255, 0, 255).astype(np.uint8)
++
++    shape_x = int(x.max()) + 1
++    shape_y = int(y.max()) + 1
++    if stain is not None:
++        shape_x = max(shape_x, stain.shape[0])
++        shape_y = max(shape_y, stain.shape[1])
++    shape = (shape_x, shape_y)
++
++    counts = data[selected["count"]].to_numpy(dtype=np.uint16)
++    matrix = csr_matrix((counts, (x, y)), shape=shape, dtype=np.uint16)
++    layers = {}
++    if stain is not None:
++        padded = np.zeros(shape, dtype=stain.dtype)
++        padded[: stain.shape[0], : stain.shape[1]] = stain[: shape[0], : shape[1]]
++        layers["stain"] = padded
++    return AnnData(X=matrix, layers=layers)
++
++
++def refine_alignment(*_args, **_kwargs):
++    raise RuntimeError("This run uses the registered RPI image; additional alignment is disabled.")
++
++
++def imshow(adata, layer, ax=None, labels=False, **kwargs):
++    import matplotlib.pyplot as plt
++
++    kwargs.pop("use_scale", None)
++    kwargs.pop("save_show_or_return", None)
++    matrix = adata.layers[layer]
++    if issparse(matrix):
++        matrix = matrix.toarray()
++    if labels:
++        matrix = color.label2rgb(matrix, bg_label=0)
++    if ax is None:
++        _, ax = plt.subplots(figsize=(5, 5), tight_layout=True)
++    ax.imshow(matrix, interpolation="none", **kwargs)
++    ax.set_title(layer)
++    return ax.get_figure(), ax
++
++
++def mask_nuclei_from_stain(
++    adata,
++    otsu_classes=3,
++    otsu_index=0,
++    local_k=55,
++    offset=5,
++    mk=5,
++    layer="stain",
++    out_layer=None,
++):
++    image = np.asarray(adata.layers[layer])
++    thresholds = filters.threshold_multiotsu(image, otsu_classes)
++    background_mask = image < thresholds[otsu_index]
++    if image.dtype == np.uint8:
++        local_mask = cv2.adaptiveThreshold(
++            image,
++            1,
++            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
++            cv2.THRESH_BINARY,
++            local_k,
++            -offset,
++        ).astype(bool)
++    else:
++        local_mask = image > filters.threshold_local(
++            image, block_size=local_k, method="gaussian", offset=-offset
++        )
++    adata.layers[out_layer or f"{layer}_mask"] = _mclose_mopen((~background_mask) & local_mask, mk)
++
++
++def find_peaks_from_mask(adata, layer, min_distance, distances_layer=None, markers_layer=None):
++    mask_layer = f"{layer}_mask" if f"{layer}_mask" in adata.layers else layer
++    mask = np.asarray(adata.layers[mask_layer], dtype=bool)
++    distances = cv2.distanceTransform(mask.astype(np.uint8), cv2.DIST_L2, 3)
++    peak_coordinates = feature.peak_local_max(distances, min_distance=min_distance, p_norm=2)
++    peaks = np.zeros(mask.shape, dtype=np.int32)
++    for label, (i, j) in enumerate(peak_coordinates, start=1):
++        peaks[i, j] = label
++    adata.layers[distances_layer or f"{layer}_distances"] = distances
++    adata.layers[markers_layer or f"{layer}_markers"] = peaks
++
++
++def watershed(adata, layer="stain", k=3, mask_layer=None, markers_layer=None, out_layer=None):
++    image = np.asarray(adata.layers[layer])
++    mask = np.asarray(adata.layers[mask_layer or f"{layer}_mask"], dtype=bool)
++    markers = np.asarray(adata.layers[markers_layer or f"{layer}_markers"])
++    blurred = cv2.GaussianBlur(image.astype(float), (k, k), sigmaX=0, sigmaY=0)
++    if markers.dtype == np.dtype(bool):
++        markers = cv2.connectedComponents(markers.astype(np.uint8))[1]
++    labels = segmentation.watershed(-blurred, markers, mask=mask | (markers > 0))
++    adata.layers[out_layer or f"{layer}_labels"] = labels
++
++
++io = SimpleNamespace(read_bgi_agg=read_bgi_agg)
++cs = SimpleNamespace(
++    refine_alignment=refine_alignment,
++    mask_nuclei_from_stain=mask_nuclei_from_stain,
++    find_peaks_from_mask=find_peaks_from_mask,
++    watershed=watershed,
++)
++pl = SimpleNamespace(imshow=imshow)

@@ -1,0 +1,83 @@
+{
+  "as_of_utc": "2026-09-08T03:48:13.872263+00:00",
+  "assessment": "Share with caveats",
+  "checked_regions": [
+    {
+      "dataset": "stereo_mouse_brain",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "not applicable",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/stereo_mouse_brain/comparison_completed.json"
+    },
+    {
+      "dataset": "2104",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "not applicable",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/2104/comparison_completed.json"
+    },
+    {
+      "dataset": "2105",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "not applicable",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/2105/comparison_completed.json"
+    },
+    {
+      "dataset": "2106",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "not applicable",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/2106/comparison_completed.json"
+    },
+    {
+      "dataset": "2107",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "not applicable",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/2107/comparison_completed.json"
+    },
+    {
+      "dataset": "seqfish_rep1_fov0",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "pass",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/seqfish_rep1_fov0/comparison_completed.json"
+    },
+    {
+      "dataset": "seqfish_rep1_fov1",
+      "source_umi_conservation": "pass",
+      "assigned_fraction_recalculation": "pass",
+      "per_cell_csv_counts_and_random_mean": "pass",
+      "training_and_inference_completeness": "pass",
+      "cellist_patch_total_reconciliation": "pass",
+      "iou_mean_recall_recalculation": "pass",
+      "comparison_file": "/lustre09/project/6102157/glancerz/codex/TLS/runs/Cellist_full_genept_v1/datasets/seqfish_rep1_fov1/comparison_completed.json"
+    }
+  ],
+  "blockers": [],
+  "caveats": [
+    "Shared watershed nuclei, not original Cellist native pipeline.",
+    "Expression consistency is not independent segmentation accuracy.",
+    "seqFISH molecule input is conditioned on selected manual cells.",
+    "Only one seed per model; cells within one region are correlated observations."
+  ]
+}

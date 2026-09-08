@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "checks": {
+    "direction": {
+      "max_abs_error": 1.043081283569336e-07,
+      "passed": true
+    },
+    "foreground": {
+      "max_abs_error": 5.960464477539063e-08,
+      "passed": true
+    },
+    "losses": {
+      "max_abs_error": 2.384185791015625e-07,
+      "passed": true
+    },
+    "expression_gradient": {
+      "max_abs_error": 1.1641532182693481e-10,
+      "passed": true
+    },
+    "position_gradient": {
+      "max_abs_error": 8.003553375601768e-11,
+      "passed": true
+    },
+    "optimizer_steps": {
+      "max_abs_error": 0.0,
+      "passed": true
+    },
+    "direction_argmax": {
+      "passed": true
+    },
+    "foreground_threshold": {
+      "passed": true
+    }
+  },
+  "source": "/tmp/scs-original-tf-real-20260905.npz",
+  "metadata": {
+    "n_genes": 2000,
+    "n_neighbors": 50,
+    "source_checkpoint": "runs/ST19_whole_scs/tiles/x11_y12/optimized_training/job20305630_1788623771281538687/ckpt/ckpt",
+    "data_dir": "/lustre09/project/6102157/glancerz/codex/TLS/runs/ST19_whole_scs/tiles/x11_y12/data",
+    "parameter_count": 729489,
+    "dropout_disabled_for_equivalence": true
+  },
+  "scope": "CPU FP32 forward/loss/input-gradients and dense AdamW; not stochastic training equivalence"
+}

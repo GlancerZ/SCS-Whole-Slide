@@ -1,6 +1,7 @@
 """PyTorch SCS transformer with explicit scaled-dot-product attention."""
 
 from dataclasses import asdict, dataclass
+import math
 
 from torch import nn
 from torch.nn import functional as F
@@ -25,6 +26,9 @@ class ModelConfig:
     base_layers: int = 8
     dropout: float = 0.1
     head_dropout: float = 0.5
+    expression_scale: float = 1.0
+    coordinate_scale: float = 1.0
+    expression_encoding: str = "genept"
 
     def __post_init__(self):
         if self.scale not in (1, 2, 4):
@@ -33,6 +37,11 @@ class ModelConfig:
             raise ValueError("model dimensions must be positive")
         if self.n_genes < 0:
             raise ValueError("gene count cannot be negative")
+        if self.expression_encoding not in ("genept", "raw_counts"):
+            raise ValueError("expression_encoding must be genept or raw_counts")
+        if any(not math.isfinite(x) or x <= 0 for x in
+               (self.expression_scale, self.coordinate_scale)):
+            raise ValueError("input scales must be finite and positive")
 
     @property
     def width(self):
@@ -52,6 +61,11 @@ class ModelConfig:
 
     def to_dict(self):
         result = asdict(self)
+        # Keep legacy default checkpoints/config comparisons compatible.
+        for key, default in (("expression_scale", 1.), ("coordinate_scale", 1.),
+                             ("expression_encoding", "genept")):
+            if result[key] == default:
+                del result[key]
         result.update(
             width=self.width,
             heads=self.heads,
@@ -145,16 +159,21 @@ class SCSClassifier(nn.Module):
 
     def project_expression(self, expression):
         if isinstance(expression, (tuple, list)):
-            if self.gene_embeddings is None:
+            raw_counts = self.config.expression_encoding == "raw_counts"
+            if self.gene_embeddings is None and not raw_counts:
                 raise ValueError("sparse spots require a GenePT gene table")
             if len(expression) != 4:
                 raise ValueError("sparse spots need indices, values, offsets, shape")
             indices, values, offsets, shape = expression
             batch, neighbors = map(int, shape)
             lengths = offsets[1:] - offsets[:-1]
-            divisors = lengths.repeat_interleave(lengths).to(dtype=values.dtype)
-            normalized_values = values / divisors
-            projected_genes = self.expression_projection(self.gene_embeddings)
+            if raw_counts:
+                normalized_values = values
+                projected_genes = self.expression_projection.weight.T.to(dtype=values.dtype)
+            else:
+                divisors = lengths.repeat_interleave(lengths).to(dtype=values.dtype)
+                normalized_values = values / divisors
+                projected_genes = self.expression_projection(self.gene_embeddings)
             pooled = F.embedding_bag(
                 indices,
                 projected_genes,
@@ -164,17 +183,20 @@ class SCSClassifier(nn.Module):
                 include_last_offset=True,
             )
             valid = (lengths > 0).to(dtype=pooled.dtype).unsqueeze(-1)
-            pooled = pooled + valid * self.spot_bias.to(dtype=pooled.dtype)
-            return pooled.reshape(batch, neighbors, self.config.width)
+            bias_mask = 1 if raw_counts else valid
+            pooled = pooled + bias_mask * self.spot_bias.to(dtype=pooled.dtype)
+            return pooled.reshape(batch, neighbors, self.config.width) * self.config.expression_scale
         if expression.ndim != 3 or expression.shape[-1] != self.config.input_dim:
             raise ValueError("dense spot embeddings have the wrong shape")
-        return self.expression_projection(expression) + self.spot_bias
+        return (self.expression_projection(expression) + self.spot_bias) * self.config.expression_scale
 
     def forward(self, expression, relative_positions):
         if relative_positions.ndim != 3:
             raise ValueError("positions must be [batch, neighbors, 2]")
         x = self.project_expression(expression)
-        x = x + self.position_projection(relative_positions.to(dtype=x.dtype))
+        x = x + self.position_projection(
+            relative_positions.to(dtype=x.dtype) * self.config.coordinate_scale
+        )
         for block in self.blocks:
             x = block(x)
         features = self.head_mlp(self.final_norm(x)[:, 0])
@@ -204,7 +226,8 @@ class SCSClassifier(nn.Module):
 
 
 def scs_loss(
-    direction_logits, foreground_logits, direction_targets, foreground_targets
+    direction_logits, foreground_logits, direction_targets, foreground_targets,
+    foreground_class_weights=None,
 ):
     """Match the two reference losses, including background-masked direction loss."""
     foreground_targets = foreground_targets.float()
@@ -212,7 +235,13 @@ def scs_loss(
         direction_logits, direction_targets.long(), reduction="none"
     )
     direction = (direction_per_example * foreground_targets).mean()
-    foreground = F.binary_cross_entropy_with_logits(
-        foreground_logits, foreground_targets
+    binary_per_example = F.binary_cross_entropy_with_logits(
+        foreground_logits, foreground_targets, reduction="none"
     )
+    if foreground_class_weights is not None:
+        negative_weight, positive_weight = foreground_class_weights
+        binary_per_example = binary_per_example * (
+            (1-foreground_targets)*negative_weight + foreground_targets*positive_weight
+        )
+    foreground = binary_per_example.mean()
     return direction + foreground, direction, foreground

@@ -1,0 +1,15 @@
+{
+  "captured_utc": "2026-09-08T01:07:12.846906+00:00",
+  "environment": "torch",
+  "python": "3.11.13",
+  "executable": "/lustre09/project/6102157/glancerz/codex/TLS/.venv-scs-torch/bin/python",
+  "host": "rc31706",
+  "job": "20445592",
+  "packages": {
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "pandas": "2.2.1+computecanada",
+    "torch": "2.13.0+cu130",
+    "h5py": "3.16.0"
+  }
+}

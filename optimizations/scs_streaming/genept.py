@@ -1,4 +1,4 @@
-"""GenePT-w spot embeddings without constructing dense gene vectors."""
+"""Gene embedding utilities for spot-level pooling without dense per-spot vectors."""
 
 import hashlib
 import pickle
@@ -16,21 +16,24 @@ def file_sha256(path, chunk_size=1024 * 1024):
 
 
 def load_genept_embeddings(path):
-    """Load and validate the official GenePT gene-symbol embedding dictionary."""
+    """Load and validate a symbol->vector gene embedding dictionary."""
     path = Path(path)
     with path.open("rb") as handle:
         source = pickle.load(handle)
+
+    if isinstance(source, dict) and set(source.keys()) == {"metadata", "embeddings"}:
+        source = source["embeddings"]
     if not isinstance(source, dict) or not source:
-        raise ValueError("GenePT asset must contain a nonempty dictionary")
+        raise ValueError("gene embedding asset must contain a nonempty dictionary")
     result = {}
     dimension = None
     for symbol, value in source.items():
         if not isinstance(symbol, str):
-            raise TypeError("GenePT dictionary keys must be gene symbols")
+            raise TypeError("gene embedding dictionary keys must be gene symbols")
         vector = np.asarray(value, dtype=np.float32).reshape(-1)
         dimension = len(vector) if dimension is None else dimension
         if len(vector) != dimension or not np.isfinite(vector).all():
-            raise ValueError(f"invalid GenePT vector for {symbol}")
+            raise ValueError(f"invalid gene vector for {symbol}")
         result[symbol.upper()] = vector
     return result, dimension
 

@@ -1,11 +1,12 @@
-# PyTorch whole-slide SCS with GenePT spots
+# PyTorch whole-slide SCS with unified gene-semantics embeddings
 
 This path trains one model across all prepared ST19 regions. It preserves the
 original SCS 50-spot spatial sequence, while replacing each raw sparse spot
-vector with one GenePT-w embedding. The old 6,000-HVG list does not filter the
-genes used by this representation and does not define RNA occupancy: the
-50-spot graph is rebuilt from all source genes that have a GenePT mapping. The
-saved nucleus segmentation is reused to label the resulting center spots.
+vector with one embedding generated from **统一 NCBI 人类基因描述**（再通过同一套新模型统一编码）。The old
+6,000-HVG list does not filter the genes used by this representation and does
+not define RNA occupancy: the 50-spot graph is rebuilt from all source genes
+that have a unified embedding entry. The saved nucleus segmentation is reused to
+label the resulting center spots.
 
 ## Exact spot representation
 
@@ -23,11 +24,12 @@ from duplicate source identifiers with the same gene symbol are combined, so
 the symbol is counted once in `k`. Every 3x3 spot is encoded independently.
 The 50 spots are never pooled together before the segmentation Transformer.
 
-The official GenePT `text-embedding-ada-002` vectors have 1,536 dimensions.
-There is no PCA. At scale 4 the learned expression layer is
-`Linear(1536, 256)`, while relative `(dx, dy)` positions pass through a separate
-`Linear(2, 256)` and are added to the corresponding spot token. Scale 1 and 2
-use widths 64 and 128 respectively.
+The new table is produced by a single embedding model for every supported gene; its
+dimension is determined by the chosen model and can be wider than 1,536. There is no PCA.
+At scale 4 the learned expression layer is `Linear(gene_embedding_dim, 256)`,
+while relative `(dx, dy)` positions pass through a separate `Linear(2, 256)` and
+are added to the corresponding spot token. Scale 1 and 2 use widths 64 and 128
+respectively.
 
 The disk dataset stores only raw sparse counts, compact gene indices, neighbor
 references, positions, and labels, plus one shared native GenePT gene table. It
@@ -75,16 +77,24 @@ bash scripts/download_genept_assets.sh \
   runs/ST19_shared_6000/genept_assets
 ```
 
-Run the probe and full preprocessing inside the existing CPU allocation:
+Run a one-pass embedding build in one command (download latest NCBI first, then build unified vectors), then probe and full preprocessing:
 
 ```bash
 source .venv-scs/bin/activate
+python -B -m optimizations.scs_streaming.build_ncbi_gene_embeddings \
+  --workdir /path/to/ncbi_latest \
+  --tax-id 9606 \
+  --model Qwen/Qwen3-Embedding-0.6B \
+  --batch-size 32 \
+  --output /path/to/gene_embeddings_unified.pkl \
+  --metadata /path/to/gene_embeddings_unified_meta.json \
+  --force-download
 python -B -m optimizations.scs_streaming.genept_dataset probe \
   --root runs/ST19_shared_6000 \
-  --gene-embeddings <GenePT_gene_embedding_ada_text.pickle>
+  --gene-embeddings /path/to/gene_embeddings_unified.pkl
 python -B -m optimizations.scs_streaming.genept_dataset build \
   --root runs/ST19_shared_6000 \
-  --gene-embeddings <GenePT_gene_embedding_ada_text.pickle> \
+  --gene-embeddings /path/to/gene_embeddings_unified.pkl \
   --output-name genept_allgenes_linear_random90
 ```
 

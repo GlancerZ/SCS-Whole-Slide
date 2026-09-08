@@ -4,6 +4,27 @@ Memory-bounded whole-slide spatial transcriptomics training. The current main
 path trains **one PyTorch model across the complete slide**, instead of fitting
 one model per tile.
 
+## September 2026 benchmark snapshot
+
+The [Cellist / full GenePT benchmark](benchmarks/cellist_full_genept/README.md)
+contains the seven-region preparation, training, CPU segmentation, evaluation,
+and audit workflows. [Completed results](benchmarks/cellist_full_genept/results/comparison.md)
+include the [fairness review](benchmarks/cellist_full_genept/results/fairness_audit/review.md):
+these are fixed-configuration comparisons, with unresolved pseudo-label,
+resolution, and evaluation confounders, not a definitive ranking of algorithms.
+
+There are two separate embedding paths in this snapshot. The benchmark uses
+the official GenePT dictionary and **all mappable genes**. The evolving shared
+dataset builder (`genept_dataset.py`) instead requires a complete NCBI-backed
+embedding table; it rejects missing source symbols. These paths and their
+checkpoints are not interchangeable.
+
+See [upstream patches and setup](upstream_patches/README.md) for the exact SCS
+and Cellist versions and local adaptations needed by these scripts. Launchers
+retain the original Slurm/environment paths and must be adapted on another
+cluster. Raw data, embeddings, model weights, environments, and full run outputs
+are excluded; only compact aggregate results accompany the source code.
+
 ## PyTorch scaled model
 
 The PyTorch implementation reads the compact CPU-prepared representation and

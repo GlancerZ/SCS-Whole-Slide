@@ -1,0 +1,45 @@
+{
+  "passed": true,
+  "checks": {
+    "direction": {
+      "max_abs_error": 3.8743019104003906e-07,
+      "passed": true
+    },
+    "foreground": {
+      "max_abs_error": 8.940696716308594e-08,
+      "passed": true
+    },
+    "losses": {
+      "max_abs_error": 1.1920928955078125e-07,
+      "passed": true
+    },
+    "expression_gradient": {
+      "max_abs_error": 1.5832483768463135e-08,
+      "passed": true
+    },
+    "position_gradient": {
+      "max_abs_error": 5.587935447692871e-09,
+      "passed": true
+    },
+    "optimizer_steps": {
+      "max_abs_error": 0.0,
+      "passed": true
+    },
+    "direction_argmax": {
+      "passed": true
+    },
+    "foreground_threshold": {
+      "passed": true
+    }
+  },
+  "source": "/tmp/scs-original-tf-synthetic-20260905.npz",
+  "metadata": {
+    "n_genes": 23,
+    "n_neighbors": 50,
+    "source_checkpoint": "None",
+    "data_dir": null,
+    "parameter_count": 602961,
+    "dropout_disabled_for_equivalence": true
+  },
+  "scope": "CPU FP32 forward/loss/input-gradients and dense AdamW; not stochastic training equivalence"
+}

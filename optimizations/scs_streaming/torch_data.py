@@ -80,6 +80,7 @@ class GenePTBatchDataset(Dataset):
         epoch=0,
         dataset_name="genept_allgenes_linear_random90",
         residency="memory",
+        selected_gene_ids=None,
     ):
         if batch_size < 1:
             raise ValueError("batch size must be positive")
@@ -87,6 +88,14 @@ class GenePTBatchDataset(Dataset):
         self.directory = self.root / dataset_name
         self.schema = load_schema(root)
         self.manifest = json.loads((self.directory / "manifest.json").read_text())
+        self.gene_remap = None
+        if selected_gene_ids is not None:
+            selected = np.asarray(selected_gene_ids, dtype=np.int64)
+            if (selected.ndim != 1 or not len(selected) or len(np.unique(selected)) != len(selected)
+                    or selected.min() < 0 or selected.max() >= self.manifest["n_genes"]):
+                raise ValueError("selected_gene_ids must be unique valid gene IDs")
+            self.gene_remap = np.full(self.manifest["n_genes"], -1, dtype=np.int64)
+            self.gene_remap[selected] = np.arange(len(selected))
         if not self.manifest.get("complete"):
             raise ValueError("GenePT dataset is incomplete")
         if self.manifest["schema_fingerprint"] != self.schema["fingerprint"]:
@@ -169,9 +178,19 @@ class GenePTBatchDataset(Dataset):
         np.cumsum(lengths, out=offsets[1:])
         source = np.arange(offsets[-1], dtype=np.int64)
         source += np.repeat(starts - offsets[:-1], lengths)
+        genes = np.asarray(self.expression_indices[source])
+        values = np.asarray(self.expression_data[source])
+        if self.gene_remap is not None:
+            mapped = self.gene_remap[genes]
+            keep = mapped >= 0
+            prefix = np.empty(len(keep)+1, dtype=np.int64)
+            prefix[0] = 0
+            np.cumsum(keep, out=prefix[1:])
+            offsets = prefix[offsets]
+            genes, values = mapped[keep], values[keep]
         sparse_expression = (
-            np.asarray(self.expression_indices[source]),
-            np.asarray(self.expression_data[source]),
+            genes,
+            values,
             offsets,
             np.asarray(
                 [len(sample_ids), self.manifest["n_neighbors"]], dtype=np.int64

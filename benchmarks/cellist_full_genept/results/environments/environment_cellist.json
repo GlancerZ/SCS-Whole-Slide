@@ -1,0 +1,21 @@
+{
+  "captured_utc": "2026-09-08T01:07:12.317006+00:00",
+  "environment": "cellist",
+  "python": "3.10.21",
+  "executable": "/lustre09/project/6102157/glancerz/codex/TLS/.venv-cellist/bin/python",
+  "host": "rc31706",
+  "job": "20445592",
+  "packages": {
+    "numpy": "1.26.4",
+    "scipy": "1.15.3",
+    "pandas": "2.3.1",
+    "anndata": "0.11.4",
+    "scanpy": "1.11.5",
+    "scikit-misc": "0.5.2",
+    "scikit-image": "0.25.2",
+    "torch": "2.6.0+cpu",
+    "h5py": "3.16.0",
+    "Cellist": "1.1.1",
+    "spateo-release": "1.1.0"
+  }
+}

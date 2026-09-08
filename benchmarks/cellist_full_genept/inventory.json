@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "checked_date_utc": "2026-09-08T03:48:13.872263+00:00",
+  "execution_status": "complete",
+  "scope_status": "user_confirmed_excluding_ST19",
+  "resource_check": {
+    "command": "squeue --me",
+    "allocations": {
+      "gpu": "20445437",
+      "cpu_only": "20445592"
+    }
+  },
+  "method_default": "official_genept_all_mappable_genes_scale4",
+  "datasets": [
+    {
+      "dataset": "stereo_mouse_brain",
+      "status": {
+        "dataset": "stereo_mouse_brain",
+        "patches": 108,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 108,
+        "genept_postprocessed": 108,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "2104",
+      "status": {
+        "dataset": "2104",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "2105",
+      "status": {
+        "dataset": "2105",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "2106",
+      "status": {
+        "dataset": "2106",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "2107",
+      "status": {
+        "dataset": "2107",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "seqfish_rep1_fov0",
+      "status": {
+        "dataset": "seqfish_rep1_fov0",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    },
+    {
+      "dataset": "seqfish_rep1_fov1",
+      "status": {
+        "dataset": "seqfish_rep1_fov1",
+        "patches": 1,
+        "prepared": true,
+        "genept_last_epoch": 100,
+        "genept_training_complete": true,
+        "genept_inference_complete": true,
+        "cellist_completed": 1,
+        "genept_postprocessed": 1,
+        "comparison_complete": true,
+        "cellist_failed_patches": []
+      }
+    }
+  ],
+  "paper": {
+    "doi": "10.1038/s41588-026-02610-1",
+    "pdf_source": "https://wanglabtongji.github.io/resources/publications/2026_NatGenet_Cellist.pdf",
+    "pdf_sha256": "40dd5ca7d46ad8e1f8e1176350f31fb8cc007e008720eb27c831318e9c545953",
+    "evaluation_archive_doi": "10.5281/zenodo.18638251",
+    "evaluation_archive_status": "downloaded_and_md5_verified",
+    "evaluation_archive_md5": "49dda0fa190baf3d52ab2c5353d5dfa7"
+  },
+  "environments": {
+    "cellist": "source /lustre09/project/6102157/glancerz/codex/TLS/scripts/cellist_env.sh",
+    "genept": "source /lustre09/project/6102157/glancerz/codex/TLS/.venv-scs-torch/bin/activate",
+    "preprocessing": "source /lustre09/project/6102157/glancerz/codex/TLS/.venv-scs/bin/activate"
+  }
+}

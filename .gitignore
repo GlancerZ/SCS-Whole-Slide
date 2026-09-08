@@ -11,6 +11,10 @@ prepared/
 runs/
 *.log
 slurm-*.out
+*.pt
+*.pth
+*.ckpt
+*.qs
 optimizations/scs_streaming/benchmarks/
 
 # Upstream source checkouts kept outside this repository's history

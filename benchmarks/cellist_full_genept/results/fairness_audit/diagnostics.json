@@ -1,0 +1,376 @@
+{
+  "stereo_mouse_brain": {
+    "genept_bin_size": 3,
+    "native_resolution_um": 0.5,
+    "genept_input_spacing_um": 1.5,
+    "cellist_input_spacing_um": 0.5,
+    "methods": {
+      "cellist": {
+        "cells": 42302,
+        "qc_cells": 37862,
+        "qc_retention": 0.8950404236206326,
+        "qc_median_spots": 601.0,
+        "qc_median_umis": 1979.0
+      },
+      "full_genept_scale4": {
+        "cells": 53551,
+        "qc_cells": 52768,
+        "qc_retention": 0.9853784243058019,
+        "qc_median_spots": 448.0,
+        "qc_median_umis": 1539.5
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 33361,
+        "over100_each_part": 8883,
+        "mean_GenePT_minus_Cellist": -0.1756486217303947
+      },
+      "cellist_to_genept": {
+        "all_eligible": 36323,
+        "over100_each_part": 6163,
+        "mean_GenePT_minus_Cellist": -0.1994059413459866
+      }
+    },
+    "fallback_patches": [
+      {
+        "patch": "r00000_c02400",
+        "source_umis": 2819,
+        "cells": 1
+      },
+      {
+        "patch": "r01200_c08400",
+        "source_umis": 656188,
+        "cells": 246
+      },
+      {
+        "patch": "r01200_c09600",
+        "source_umis": 13096,
+        "cells": 1
+      },
+      {
+        "patch": "r08400_c00000",
+        "source_umis": 25966,
+        "cells": 1
+      },
+      {
+        "patch": "r08400_c08400",
+        "source_umis": 1388608,
+        "cells": 396
+      }
+    ],
+    "RNA_depth_stratified_diagnostic": {
+      "common_log2_UMI_bins": 7,
+      "weighted_GenePT_minus_Cellist": -0.0223264209884244,
+      "definition": "Within log2 total-UMI strata; weights=min(method cell counts); descriptive, not randomized matching"
+    },
+    "purity_pairs": {
+      "nucleus_rows": 37833,
+      "unique_cell_pairs": 37833,
+      "unique_pair_mean_cellist": 0.7618014733898113,
+      "unique_pair_mean_genept": 0.9406574163752729
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.8060608939343562,
+    "fallback_source_UMI_fraction": 0.015123523703465707
+  },
+  "2104": {
+    "genept_bin_size": 3,
+    "native_resolution_um": 0.6,
+    "genept_input_spacing_um": 1.7999999999999998,
+    "cellist_input_spacing_um": 0.6,
+    "methods": {
+      "cellist": {
+        "cells": 956,
+        "qc_cells": 919,
+        "qc_retention": 0.9612970711297071,
+        "qc_median_spots": 485.0,
+        "qc_median_umis": 3022.0
+      },
+      "full_genept_scale4": {
+        "cells": 1164,
+        "qc_cells": 1049,
+        "qc_retention": 0.9012027491408935,
+        "qc_median_spots": 451.0,
+        "qc_median_umis": 2738.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 907,
+        "over100_each_part": 699,
+        "mean_GenePT_minus_Cellist": -0.08108979597778927
+      },
+      "cellist_to_genept": {
+        "all_eligible": 905,
+        "over100_each_part": 701,
+        "mean_GenePT_minus_Cellist": -0.09307255524642526
+      }
+    },
+    "fallback_patches": [],
+    "RNA_depth_stratified_diagnostic": {
+      "common_log2_UMI_bins": 7,
+      "weighted_GenePT_minus_Cellist": -0.009992629526523484,
+      "definition": "Within log2 total-UMI strata; weights=min(method cell counts); descriptive, not randomized matching"
+    },
+    "purity_pairs": {
+      "nucleus_rows": 906,
+      "unique_cell_pairs": 906,
+      "unique_pair_mean_cellist": 0.8162091247092531,
+      "unique_pair_mean_genept": 0.9871591311692194
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.846,
+    "fallback_source_UMI_fraction": 0.0
+  },
+  "2105": {
+    "genept_bin_size": 3,
+    "native_resolution_um": 0.6,
+    "genept_input_spacing_um": 1.7999999999999998,
+    "cellist_input_spacing_um": 0.6,
+    "methods": {
+      "cellist": {
+        "cells": 878,
+        "qc_cells": 833,
+        "qc_retention": 0.94874715261959,
+        "qc_median_spots": 493.0,
+        "qc_median_umis": 2738.0
+      },
+      "full_genept_scale4": {
+        "cells": 1073,
+        "qc_cells": 958,
+        "qc_retention": 0.8928238583410997,
+        "qc_median_spots": 470.0,
+        "qc_median_umis": 2532.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 818,
+        "over100_each_part": 599,
+        "mean_GenePT_minus_Cellist": -0.0850598939919942
+      },
+      "cellist_to_genept": {
+        "all_eligible": 824,
+        "over100_each_part": 592,
+        "mean_GenePT_minus_Cellist": -0.09450537438832476
+      }
+    },
+    "fallback_patches": [],
+    "RNA_depth_stratified_diagnostic": {
+      "common_log2_UMI_bins": 6,
+      "weighted_GenePT_minus_Cellist": -0.007925249130616931,
+      "definition": "Within log2 total-UMI strata; weights=min(method cell counts); descriptive, not randomized matching"
+    },
+    "purity_pairs": {
+      "nucleus_rows": 829,
+      "unique_cell_pairs": 829,
+      "unique_pair_mean_cellist": 0.7891608679528282,
+      "unique_pair_mean_genept": 0.9846168032288992
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.871,
+    "fallback_source_UMI_fraction": 0.0
+  },
+  "2106": {
+    "genept_bin_size": 3,
+    "native_resolution_um": 0.6,
+    "genept_input_spacing_um": 1.7999999999999998,
+    "cellist_input_spacing_um": 0.6,
+    "methods": {
+      "cellist": {
+        "cells": 536,
+        "qc_cells": 514,
+        "qc_retention": 0.9589552238805971,
+        "qc_median_spots": 485.0,
+        "qc_median_umis": 3897.0
+      },
+      "full_genept_scale4": {
+        "cells": 554,
+        "qc_cells": 525,
+        "qc_retention": 0.9476534296028881,
+        "qc_median_spots": 459.0,
+        "qc_median_umis": 3591.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 495,
+        "over100_each_part": 368,
+        "mean_GenePT_minus_Cellist": -0.03483757777883637
+      },
+      "cellist_to_genept": {
+        "all_eligible": 495,
+        "over100_each_part": 370,
+        "mean_GenePT_minus_Cellist": -0.039109866701983534
+      }
+    },
+    "fallback_patches": [],
+    "RNA_depth_stratified_diagnostic": {
+      "common_log2_UMI_bins": 5,
+      "weighted_GenePT_minus_Cellist": 0.00012359900521807208,
+      "definition": "Within log2 total-UMI strata; weights=min(method cell counts); descriptive, not randomized matching"
+    },
+    "purity_pairs": {
+      "nucleus_rows": 508,
+      "unique_cell_pairs": 508,
+      "unique_pair_mean_cellist": 0.8505925647655185,
+      "unique_pair_mean_genept": 0.9774552083775735
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.858,
+    "fallback_source_UMI_fraction": 0.0
+  },
+  "2107": {
+    "genept_bin_size": 3,
+    "native_resolution_um": 0.6,
+    "genept_input_spacing_um": 1.7999999999999998,
+    "cellist_input_spacing_um": 0.6,
+    "methods": {
+      "cellist": {
+        "cells": 802,
+        "qc_cells": 761,
+        "qc_retention": 0.9488778054862843,
+        "qc_median_spots": 432.0,
+        "qc_median_umis": 3368.0
+      },
+      "full_genept_scale4": {
+        "cells": 863,
+        "qc_cells": 807,
+        "qc_retention": 0.9351100811123986,
+        "qc_median_spots": 460.0,
+        "qc_median_umis": 3416.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 755,
+        "over100_each_part": 541,
+        "mean_GenePT_minus_Cellist": -0.06067371517818745
+      },
+      "cellist_to_genept": {
+        "all_eligible": 762,
+        "over100_each_part": 557,
+        "mean_GenePT_minus_Cellist": -0.06721811236928152
+      }
+    },
+    "fallback_patches": [],
+    "RNA_depth_stratified_diagnostic": {
+      "common_log2_UMI_bins": 6,
+      "weighted_GenePT_minus_Cellist": -0.003992596912210196,
+      "definition": "Within log2 total-UMI strata; weights=min(method cell counts); descriptive, not randomized matching"
+    },
+    "purity_pairs": {
+      "nucleus_rows": 758,
+      "unique_cell_pairs": 758,
+      "unique_pair_mean_cellist": 0.8323411054783633,
+      "unique_pair_mean_genept": 0.9922442705693669
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.827,
+    "fallback_source_UMI_fraction": 0.0
+  },
+  "seqfish_rep1_fov0": {
+    "genept_bin_size": 1,
+    "native_resolution_um": 0.515,
+    "genept_input_spacing_um": 0.515,
+    "cellist_input_spacing_um": 0.515,
+    "methods": {
+      "cellist": {
+        "cells": 18,
+        "qc_cells": 18,
+        "qc_retention": 1.0,
+        "qc_median_spots": 3350.0,
+        "qc_median_umis": 32183.0
+      },
+      "full_genept_scale4": {
+        "cells": 19,
+        "qc_cells": 19,
+        "qc_retention": 1.0,
+        "qc_median_spots": 1210.0,
+        "qc_median_umis": 9856.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 5,
+        "over100_each_part": 2,
+        "mean_GenePT_minus_Cellist": -0.17938995396245186
+      },
+      "cellist_to_genept": {
+        "all_eligible": 5,
+        "over100_each_part": 2,
+        "mean_GenePT_minus_Cellist": -0.17938995396245186
+      }
+    },
+    "fallback_patches": [],
+    "purity_pairs": {
+      "nucleus_rows": 18,
+      "unique_cell_pairs": 18,
+      "unique_pair_mean_cellist": 1.010581530834627,
+      "unique_pair_mean_genept": 0.9942853763098759
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.9713333333333334,
+    "fallback_source_UMI_fraction": 0.0,
+    "manual_RNA_pseudolabel_audit": {
+      "molecules": 600427,
+      "all_have_manual_cell": true,
+      "fraction_given_background_pseudolabel": 0.35841659352427524,
+      "fraction_training_background": 0.28613636628599315,
+      "fraction_validation_background": 0.036062668734084244,
+      "fraction_test_background": 0.03621755850419785,
+      "fraction_nucleus_positive": 0.12561726904353068,
+      "fraction_ignored_pseudolabel": 0.5159578100251987,
+      "background_distance_um": 15.450000000000001
+    }
+  },
+  "seqfish_rep1_fov1": {
+    "genept_bin_size": 1,
+    "native_resolution_um": 0.515,
+    "genept_input_spacing_um": 0.515,
+    "cellist_input_spacing_um": 0.515,
+    "methods": {
+      "cellist": {
+        "cells": 14,
+        "qc_cells": 14,
+        "qc_retention": 1.0,
+        "qc_median_spots": 4330.5,
+        "qc_median_umis": 39025.0
+      },
+      "full_genept_scale4": {
+        "cells": 14,
+        "qc_cells": 14,
+        "qc_retention": 1.0,
+        "qc_median_spots": 1493.0,
+        "qc_median_umis": 10885.0
+      }
+    },
+    "cross_100hvgUMI": {
+      "genept_to_cellist": {
+        "all_eligible": 3,
+        "over100_each_part": 0,
+        "mean_GenePT_minus_Cellist": null
+      },
+      "cellist_to_genept": {
+        "all_eligible": 3,
+        "over100_each_part": 0,
+        "mean_GenePT_minus_Cellist": null
+      }
+    },
+    "fallback_patches": [],
+    "purity_pairs": {
+      "nucleus_rows": 14,
+      "unique_cell_pairs": 14,
+      "unique_pair_mean_cellist": 1.0127126649227423,
+      "unique_pair_mean_genept": 0.9949958074526642
+    },
+    "evaluation_HVG_mapping_fraction_gene_patch_entries": 0.9693333333333334,
+    "fallback_source_UMI_fraction": 0.0,
+    "manual_RNA_pseudolabel_audit": {
+      "molecules": 521174,
+      "all_have_manual_cell": true,
+      "fraction_given_background_pseudolabel": 0.4142416927935776,
+      "fraction_training_background": 0.3315783212516357,
+      "fraction_validation_background": 0.04111870507738299,
+      "fraction_test_background": 0.041544666464558865,
+      "fraction_nucleus_positive": 0.10939916419468354,
+      "fraction_ignored_pseudolabel": 0.47632652434695516,
+      "background_distance_um": 15.450000000000001
+    }
+  }
+}

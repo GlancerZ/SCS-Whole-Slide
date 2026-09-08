@@ -184,6 +184,7 @@ def run_epoch(
     max_steps=None,
     log_every=25,
     batch_mover=None,
+    foreground_class_weights=None,
 ):
     torch = require_torch()
     training = muon is not None
@@ -214,7 +215,8 @@ def run_epoch(
             with torch.autocast(device_type="cuda", dtype=amp_dtype):
                 direction_logits, foreground_logits = model(expression, positions)
                 loss, direction_loss, foreground_loss = scs_loss(
-                    direction_logits, foreground_logits, directions, foreground
+                    direction_logits, foreground_logits, directions, foreground,
+                    foreground_class_weights=foreground_class_weights,
                 )
             if not torch.isfinite(loss):
                 raise ValueError(f"nonfinite loss at step {step}")

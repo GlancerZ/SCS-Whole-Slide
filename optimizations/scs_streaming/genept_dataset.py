@@ -28,7 +28,8 @@ from .shared_data import (
     save_json,
 )
 REPRESENTATION = (
-    "all-source-gene sparse spots with native GenePT and learned projection"
+    "all-source-gene sparse spots with unified gene-semantics embeddings and "
+    "learned projection"
 )
 
 
@@ -115,16 +116,28 @@ def build_lookup(root, embedding_path):
     gene_embeddings, source_to_gene, gene_symbols, metadata = make_gene_lookup(
         symbols, embeddings
     )
+    if np.any(source_to_gene < 0):
+        missing = np.unique(
+            np.asarray(symbols)[np.flatnonzero(source_to_gene < 0)]
+        ).tolist()
+        raise ValueError(
+            "gene embedding coverage is incomplete; regenerate with an NCBI-backed "
+            f"embedding table containing all source symbols. missing={len(missing)} "
+            f"examples={missing[:10]}"
+        )
     if source_dim != metadata["gene_embedding_dimension"]:
-        raise ValueError("inconsistent GenePT source dimension")
+        raise ValueError("inconsistent gene embedding source dimension")
     metadata.update(
         embedding_file=str(Path(embedding_path).resolve()),
         embedding_sha256=file_sha256(embedding_path),
         spot_formula=(
-            "sum(raw_count_i * GenePT(gene_i)) / nonzero_mapped_genes, using "
-            "all source genes rather than the old 6000-HVG feature list"
+            "sum(raw_count_i * unified_gene_embedding(gene_i)) / "
+            "nonzero_mapped_genes, using all source genes rather than the old "
+            "6000-HVG feature list"
         ),
-        model_projection="trainable Linear(1536, model_width) after spot pooling",
+        model_projection=(
+            "trainable Linear(gene_embedding_dim, model_width) after spot pooling"
+        ),
         efficient_order=(
             "project the fixed gene table, then sparse weighted pooling; "
             "mathematically identical to pooling native spot vectors first"
@@ -526,8 +539,9 @@ def merge(
             "validation_fraction": 0.1,
             "representation": REPRESENTATION,
             "support_definition": (
-                "spots and 50-neighbor graph rebuilt from all source genes with a "
-                "GenePT mapping; old 6000-HVG support is not used"
+                "spots and 50-neighbor graph rebuilt from all source genes with "
+                "a unified NCBI-backed gene embedding mapping; old 6000-HVG "
+                "support is not used"
             ),
             "n_neighbors": schema["n_neighbors"],
             "n_genes": len(gene_embeddings),

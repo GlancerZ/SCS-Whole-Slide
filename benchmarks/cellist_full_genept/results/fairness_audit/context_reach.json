@@ -1,0 +1,79 @@
+{
+  "stereo_mouse_brain": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      8.48528137423857,
+      8.48528137423857,
+      10.606601717798213
+    ],
+    "sampled_outside_nucleus": 3673,
+    "outside_context_has_any_nucleus_fraction": 0.3988565205554043
+  },
+  "2104": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      10.182337649086284,
+      10.182337649086284,
+      12.727922061357855
+    ],
+    "sampled_outside_nucleus": 3214,
+    "outside_context_has_any_nucleus_fraction": 0.5547604231487243
+  },
+  "2105": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      10.182337649086284,
+      10.182337649086284,
+      13.03390783291864
+    ],
+    "sampled_outside_nucleus": 3310,
+    "outside_context_has_any_nucleus_fraction": 0.47764350453172205
+  },
+  "2106": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      10.182337649086284,
+      10.182337649086284,
+      12.727922061357855
+    ],
+    "sampled_outside_nucleus": 3576,
+    "outside_context_has_any_nucleus_fraction": 0.2477628635346756
+  },
+  "2107": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      10.182337649086284,
+      10.182337649086284,
+      15.273506473629425
+    ],
+    "sampled_outside_nucleus": 3308,
+    "outside_context_has_any_nucleus_fraction": 0.4283555018137848
+  },
+  "seqfish_rep1_fov0": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      2.913279938488576,
+      2.913279938488576,
+      4.369919907732863
+    ],
+    "sampled_outside_nucleus": 3320,
+    "outside_context_has_any_nucleus_fraction": 0.1536144578313253
+  },
+  "seqfish_rep1_fov1": {
+    "sampled_centres": 4096,
+    "tokens": 50,
+    "radius_um_p50_p90_p99": [
+      2.913279938488576,
+      2.913279938488576,
+      4.369919907732863
+    ],
+    "sampled_outside_nucleus": 3338,
+    "outside_context_has_any_nucleus_fraction": 0.13031755542240864
+  }
+}

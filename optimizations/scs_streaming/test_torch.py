@@ -125,6 +125,20 @@ class TorchModelTests(unittest.TestCase):
             self.assertEqual(positions.shape, (2, 2, 2))
             self.assertEqual(directions.shape, (2,))
             self.assertEqual(foreground.shape, (2,))
+            filtered = GenePTBatchDataset(
+                root, "train", batch_size=2, seed=17, dataset_name="genept",
+                selected_gene_ids=[2],
+            )
+            (fgene, fvalue, foffset, fshape), fpos, fdir, fbin = filtered[0]
+            for j in range(len(offsets)-1):
+                lo, hi = offsets[j:j+2]
+                expected = values[lo:hi][indices[lo:hi] == 2]
+                np.testing.assert_array_equal(fvalue[foffset[j]:foffset[j+1]], expected)
+            np.testing.assert_array_equal(fgene, 0)
+            np.testing.assert_array_equal(fshape, shape)
+            np.testing.assert_array_equal(fpos, positions)
+            np.testing.assert_array_equal(fdir, directions)
+            np.testing.assert_array_equal(fbin, foreground)
 
     def test_sparse_projection_exactly_matches_native_pool_then_linear(self):
         gene_embeddings = torch.tensor(
@@ -153,6 +167,45 @@ class TorchModelTests(unittest.TestCase):
         self.assertEqual(model.expression_projection.out_features, 256)
         self.assertEqual(model.position_projection.in_features, 2)
         self.assertEqual(model.position_projection.out_features, 256)
+
+    def test_sparse_raw_counts_match_dense_linear_including_empty_spots_and_gradients(self):
+        cfg = ModelConfig(input_dim=3, scale=1, base_layers=1, n_neighbors=2,
+                          expression_encoding="raw_counts", expression_scale=2.)
+        model = SCSClassifier(cfg)
+        model.spot_bias.data.fill_(.3)
+        x = (torch.tensor([0, 2]), torch.tensor([2., 3.]),
+             torch.tensor([0, 2, 2]), (1, 2))
+        dense = torch.tensor([[[2., 0., 3.], [0., 0., 0.]]])
+        a = model.project_expression(x)
+        b = model.project_expression(dense)
+        torch.testing.assert_close(a, b)
+        ga = torch.autograd.grad(a.square().sum(), model.expression_projection.weight)[0]
+        gb = torch.autograd.grad(b.square().sum(), model.expression_projection.weight)[0]
+        torch.testing.assert_close(ga, gb)
+
+    def test_explicit_scales_and_legacy_configuration(self):
+        config = ModelConfig(input_dim=5, scale=1, base_layers=1, n_neighbors=2)
+        self.assertNotIn("expression_scale", config.to_dict())
+        self.assertNotIn("coordinate_scale", config.to_dict())
+        altered = ModelConfig(input_dim=5, scale=1, base_layers=1, n_neighbors=2,
+                              expression_scale=3., coordinate_scale=.1)
+        base, model = SCSClassifier(config).eval(), SCSClassifier(altered).eval()
+        model.load_state_dict(base.state_dict())
+        x, p = torch.randn(2, 2, 5), torch.randn(2, 2, 2)
+        torch.testing.assert_close(model.project_expression(x), base.project_expression(x)*3)
+        with mock.patch.object(model.position_projection, 'forward',
+                               wraps=model.position_projection.forward) as fn:
+            model(x,p)
+        torch.testing.assert_close(fn.call_args.args[0], p*.1)
+
+    def test_balanced_binary_loss_has_zero_bias_gradient_at_equal_probability(self):
+        y = torch.tensor([1., 1., 1., 0.])
+        bias = torch.tensor(0., requires_grad=True)
+        _, _, binary = scs_loss(torch.zeros(4, 16), bias.expand(4),
+                                torch.zeros(4, dtype=torch.long), y,
+                                foreground_class_weights=(2., 2/3))
+        binary.backward()
+        torch.testing.assert_close(bias.grad, torch.tensor(0.), atol=1e-7, rtol=0.)
 
     def test_optimizer_groups_are_complete_and_muon_is_hidden_matrices(self):
         model = SCSClassifier(

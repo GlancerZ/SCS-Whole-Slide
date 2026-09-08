@@ -1,0 +1,82 @@
+diff --git a/src/Cellist/Segmentation.py b/src/Cellist/Segmentation.py
+index b4e5236..8ea8b15 100644
+--- a/src/Cellist/Segmentation.py
++++ b/src/Cellist/Segmentation.py
+@@ -434,7 +434,7 @@ def Soft_assignment_patch(platform, resolution, nucleus_seg_method, props_file_p
+     coord_slice_list = slice_coord(coord_df_patch, slice_size, stride_length)
+     logging.info('There are %s slices in the patch.' %len(coord_slice_list))
+     res_list = []
+-    with concurrent.futures.ThreadPoolExecutor(max_workers = 36) as executor:
++    with concurrent.futures.ThreadPoolExecutor(max_workers = int(os.environ.get('CELLIST_THREADS', '4'))) as executor:
+         for coord_tuple in coord_slice_list:
+             xmin_slice, xmax_slice, ymin_slice, ymax_slice = coord_tuple
+             arg_tuple = (count_df_patch, coord_df_patch, nucleus_seg_method, props_df_patch, spot_expr_patch_filter, 
+@@ -567,7 +567,7 @@ def Cellist(platform, resolution, nucleus_seg_method, props_file, nucleus_count_
+         if not os.path.exists(patch_data_dir):
+             os.mkdir(patch_data_dir)
+         res_list = []
+-        with concurrent.futures.ThreadPoolExecutor(max_workers = 36) as executor:
++        with concurrent.futures.ThreadPoolExecutor(max_workers = int(os.environ.get('CELLIST_THREADS', '4'))) as executor:
+             for i in range(len(coord_patch_list)):
+                 logging.info('Writing patch %s...' %i)
+                 xmin_patch, xmax_patch, ymin_patch, ymax_patch = coord_patch_list[i]
+diff --git a/src/Cellist/__init__.py b/src/Cellist/__init__.py
+index 044e73f..5ed99fc 100644
+--- a/src/Cellist/__init__.py
++++ b/src/Cellist/__init__.py
+@@ -3,15 +3,29 @@ import os
+ import sys
+ import logging
+ import argparse as ap
++import importlib
+ 
+ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+ 
+ from Cellist.version import __version__
+-from Cellist.Segmentation import CellistParser, Cellist
+-from Cellist.Registration import AlignmentParser, Alignment
+-from Cellist.Watershed import WatershedParser, Watershed
+-from Cellist.Imputation import ImputationParser, Imputation
+-from Cellist.Cellpose import CellposeParser, Cellpose
++_COMMANDS = {
++    'seg': ('Segmentation', 'CellistParser', 'Cellist', 'Run Cellist segmentation.'),
++    'align': ('Registration', 'AlignmentParser', 'Alignment', 'Refine image alignment.'),
++    'watershed': ('Watershed', 'WatershedParser', 'Watershed', 'Run watershed nucleus segmentation.'),
++    'cellpose': ('Cellpose', 'CellposeParser', 'Cellpose', 'Run Cellpose nucleus segmentation.'),
++    'impute': ('Imputation', 'ImputationParser', 'Imputation', 'Run spatial gene imputation.'),
++}
++
++
++def __getattr__(name):
++    # Preserve the public API while keeping optional registration/deep-learning
++    # imports out of CPU watershed/segmentation and top-level --help.
++    for module_name, parser_name, function_name, _ in _COMMANDS.values():
++        if name in (parser_name, function_name):
++            value = getattr(importlib.import_module('Cellist.' + module_name), name)
++            globals()[name] = value
++            return value
++    raise AttributeError(name)
+ 
+ 
+ def main():
+@@ -22,11 +36,15 @@ def main():
+     parser.add_argument("-v", "--version", action = "store_true", help = "Print version info.")
+ 
+     subparsers = parser.add_subparsers(dest = "subcommand")
+-    CellistParser(subparsers)
+-    AlignmentParser(subparsers)
+-    WatershedParser(subparsers)
+-    CellposeParser(subparsers)
+-    ImputationParser(subparsers)
++    requested = next((arg for arg in sys.argv[1:] if arg in _COMMANDS), None)
++    for command, (module_name, parser_name, function_name, help_text) in _COMMANDS.items():
++        if command == requested:
++            module = importlib.import_module('Cellist.' + module_name)
++            globals()[parser_name] = getattr(module, parser_name)
++            globals()[function_name] = getattr(module, function_name)
++            globals()[parser_name](subparsers)
++        else:
++            subparsers.add_parser(command, help=help_text)
+ 
+     logging.basicConfig(format="%(levelname)s: %(message)s", stream=sys.stderr)
+     args = parser.parse_args()
